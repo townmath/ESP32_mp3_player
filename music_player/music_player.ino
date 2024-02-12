@@ -1,3 +1,13 @@
+//esp32 Dev
+// regular defaults except:
+// partition scheme Huge APP
+// also you have eto close and reopen arduino every time you want to recompile
+//Jim Updates:
+//default volume = calm 7 instead of blaring 21
+//sort files
+//TODO: fast forward?
+//TODO: remember last song played?
+
 #include "Arduino.h"
 //#include "WiFiMulti.h"
 #include "Audio.h"
@@ -36,6 +46,10 @@ const int Pin_previous = 15;
 const int Pin_pause = 33;
 const int Pin_next = 2;
 
+
+const int DEFAULTVOL=7;//21
+const int MAXSONGS=30;
+
 Audio audio;
 
 /*
@@ -54,9 +68,9 @@ struct Music_info
     int mute_volume;
 } music_info = {"", 0, 0, 0, 0, 0};
 
-String file_list[20];
+String file_list[MAXSONGS];
 int file_num = 0;
-int file_index = 0;
+int file_index = 0; //first song is 0th song
 
 void setup()
 {
@@ -102,9 +116,14 @@ void setup()
 
     //Read SD
     file_num = get_music_list(SD, "/", 0, file_list);
+    /*for (int i = 0; i < file_num; i++) //debugging
+    {
+        Serial.println(file_list[i]);
+    }*/
+    sort_music_list(file_num,file_list);
     Serial.print("Music file count:");
     Serial.println(file_num);
-    Serial.println("All music:");
+    Serial.println("Sorted music:");
     for (int i = 0; i < file_num; i++)
     {
         Serial.println(file_list[i]);
@@ -124,7 +143,7 @@ void setup()
 
     //Audio(I2S)
     audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT);
-    audio.setVolume(21); // 0...21
+    audio.setVolume(DEFAULTVOL); // 0...21
 
     //audio.connecttoFS(SD, "/MoonlightBay.mp3"); //ChildhoodMemory.mp3  //MoonRiver.mp3 //320k_test.mp3
     //file_list[0] = "MoonlightBay.mp3";
@@ -230,7 +249,7 @@ void loop()
 void open_new_song(String filename)
 {
     //去掉文件名的根目录"/"和文件后缀".mp3",".wav"
-    music_info.name = filename.substring(1, filename.indexOf("."));
+    music_info.name = filename.substring(0, filename.indexOf("."));
     audio.connecttoFS(SD, filename);
     music_info.runtime = audio.getAudioCurrentTime();
     music_info.length = audio.getAudioFileDuration();
@@ -241,7 +260,7 @@ void open_new_song(String filename)
 
 void display_music()
 {
-    int line_step = 24;
+    int line_step = 10;//24
     int line = 0;
     char buff[20];
     ;
@@ -249,13 +268,13 @@ void display_music()
 
     display.clearDisplay();
 
-    display.setTextSize(2);              // Normal 1:1 pixel scale
+    display.setTextSize(1);              // Normal 1:1 pixel scale
     display.setTextColor(SSD1306_WHITE); // Draw white text
 
     display.setCursor(0, line); // Start at top-left corner
     display.println(music_info.name);
     line += line_step;
-
+    line += line_step;//in case song title takes up two lines
     display.setCursor(0, line);
     display.println(buff);
     line += line_step;
@@ -277,14 +296,16 @@ void logoshow(void)
 {
     display.clearDisplay();
 
-    display.setTextSize(2);              // Normal 1:1 pixel scale
+    display.setTextSize(1);              // Normal 1:1 pixel scale
     display.setTextColor(SSD1306_WHITE); // Draw white text
     display.setCursor(0, 0);             // Start at top-left corner
     display.println(F("MakePython"));
+    display.setCursor(0, 10); // Start at top-left corner
+    display.println(F("Music"));
     display.setCursor(0, 20); // Start at top-left corner
-    display.println(F("MUSIC"));
-    display.setCursor(0, 40); // Start at top-left corner
-    display.println(F("PLAYER V2"));
+    display.println(F("Player V2.1"));
+    display.setCursor(0,30);
+    display.println(F("Jim Town Edition"));
     display.display();
     delay(2000);
 }
@@ -323,7 +344,7 @@ void print_song_time()
     music_info.volume = audio.getVolume();
 }
 
-int get_music_list(fs::FS &fs, const char *dirname, uint8_t levels, String wavlist[30])
+int get_music_list(fs::FS &fs, const char *dirname, uint8_t levels, String wavlist[MAXSONGS])
 {
     Serial.printf("Listing directory: %s\n", dirname);
     int i = 0;
@@ -363,6 +384,23 @@ int get_music_list(fs::FS &fs, const char *dirname, uint8_t levels, String wavli
         file = root.openNextFile();
     }
     return i;
+}
+
+void sort_music_list(int lastFile,String fileList[MAXSONGS]){
+  //bubble sort
+  bool swapped;
+  do {
+    swapped=false;
+    for(int i=1; i<lastFile; i++){
+      if (fileList[i-1].compareTo(fileList[i])>0){
+        String temp=fileList[i];
+        fileList[i]=fileList[i-1];
+        fileList[i-1]=temp;
+        swapped=true;
+      }
+    }    
+  } while (swapped);
+
 }
 
 //**********************************************
